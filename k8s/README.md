@@ -52,24 +52,38 @@ The deployment creates the following DNS test scenarios:
 
 ## CNI Interface Configuration
 
-The DaemonSet defaults to monitoring the `cni0` interface. You may need to adjust this based on your CNI:
+The DaemonSet defaults to monitoring the `bridge` interface (for minikube). You may need to adjust this based on your CNI:
 
 ### Common CNI Interfaces:
+- **Minikube**: `bridge` (default in this deployment)
 - **Flannel**: `flannel.1`
 - **Calico**: `cali*` (multiple interfaces)  
 - **Weave**: `weave`
 - **Kind**: `kind-br-*`
 - **Docker Desktop**: `docker0`
+- **Standard CNI**: `cni0`
 
 ### Check Your CNI Interface:
 ```bash
-# On a cluster node
+# Check from within minikube
+minikube ssh "ip link show | grep -E '(cni|flannel|weave|calico|docker|bridge)'"
+
+# Or on any cluster node
+kubectl get nodes -o wide
+# SSH to node and run:
 ip link show | grep -E '(cni|flannel|weave|calico|docker|bridge)'
 ```
 
-### Update Interface:
+### Update Interface if needed:
 ```bash
+# For Flannel
 kubectl -n dns-tracing patch daemonset dnstracer -p '{"spec":{"template":{"spec":{"containers":[{"name":"dnstracer","env":[{"name":"DNSTRACER_INTERFACE","value":"flannel.1"}]}]}}}}'
+
+# For standard CNI
+kubectl -n dns-tracing patch daemonset dnstracer -p '{"spec":{"template":{"spec":{"containers":[{"name":"dnstracer","env":[{"name":"DNSTRACER_INTERFACE","value":"cni0"}]}]}}}}'
+
+# For Kind clusters
+kubectl -n dns-tracing patch daemonset dnstracer -p '{"spec":{"template":{"spec":{"containers":[{"name":"dnstracer","env":[{"name":"DNSTRACER_INTERFACE","value":"kind-br-*"}]}]}}}}'
 ```
 
 ## Expected Results
