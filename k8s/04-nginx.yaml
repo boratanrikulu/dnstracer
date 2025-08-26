@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-server
+  namespace: dns-tracing
+  labels:
+    app: nginx-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx-server
+  template:
+    metadata:
+      labels:
+        app: nginx-server
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+        ports:
+        - containerPort: 80
+          name: http
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "10m"
+          limits:
+            memory: "64Mi"
+            cpu: "50m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+  namespace: dns-tracing
+  labels:
+    app: nginx-server
+spec:
+  selector:
+    app: nginx-server
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+    name: http
+  type: ClusterIP
+---
+# Headless service for direct pod access
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-headless
+  namespace: dns-tracing
+  labels:
+    app: nginx-server
+spec:
+  selector:
+    app: nginx-server
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+    name: http
+  clusterIP: None  # Headless service
