@@ -1,0 +1,101 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dns-test-client
+  namespace: dns-tracing
+  labels:
+    app: dns-test-client
+spec:
+  containers:
+  - name: curl-client
+    image: curlimages/curl:latest
+    command:
+    - /bin/sh
+    - -c
+    - |
+      echo "=== DNS Test Client Started ==="
+      echo "Waiting 10 seconds for services to be ready..."
+      sleep 10
+      
+      while true; do
+        echo "=== Round $(date +%H:%M:%S) ==="
+        
+        # Test 1: Service DNS resolution (should go to CoreDNS)
+        echo "1. Testing service DNS: nginx-service.dns-tracing.svc.cluster.local"
+        nslookup nginx-service.dns-tracing.svc.cluster.local || echo "Service DNS failed"
+        
+        # Test 2: Headless service DNS resolution  
+        echo "2. Testing headless service DNS: nginx-headless.dns-tracing.svc.cluster.local"
+        nslookup nginx-headless.dns-tracing.svc.cluster.local || echo "Headless DNS failed"
+        
+        # Test 3: External DNS resolution
+        echo "3. Testing external DNS: google.com"
+        nslookup google.com || echo "External DNS failed"
+        
+        # Test 4: Another external domain
+        echo "4. Testing external DNS: kubernetes.io"
+        nslookup kubernetes.io || echo "kubernetes.io DNS failed"
+        
+        # Test 5: HTTP requests (after DNS resolution)
+        echo "5. Making HTTP requests:"
+        curl -s -m 5 http://nginx-service.dns-tracing.svc.cluster.local/ > /dev/null && echo "  nginx-service HTTP: Success" || echo "  nginx-service HTTP: Failed"
+        curl -s -m 5 http://nginx-headless.dns-tracing.svc.cluster.local/ > /dev/null && echo "  nginx-headless HTTP: Success" || echo "  nginx-headless HTTP: Failed"
+        curl -s -m 5 http://google.com/ > /dev/null && echo "  google.com HTTP: Success" || echo "  google.com HTTP: Failed"
+        
+        echo "=== End Round ==="
+        echo ""
+        sleep 15
+      done
+    resources:
+      requests:
+        memory: "16Mi"
+        cpu: "5m"
+      limits:
+        memory: "32Mi"
+        cpu: "20m"
+  restartPolicy: Always
+---
+# Additional test pod with different DNS behavior
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dns-test-external
+  namespace: dns-tracing
+  labels:
+    app: dns-test-external
+spec:
+  containers:
+  - name: external-dns-client
+    image: curlimages/curl:latest
+    command:
+    - /bin/sh
+    - -c
+    - |
+      echo "=== External DNS Test Client Started ==="
+      sleep 15
+      
+      while true; do
+        echo "=== External DNS Round $(date +%H:%M:%S) ==="
+        
+        # Force external DNS queries by using specific nameservers
+        echo "1. Direct query to 8.8.8.8 for example.com"
+        nslookup example.com 8.8.8.8 || echo "8.8.8.8 query failed"
+        
+        echo "2. Direct query to 1.1.1.1 for cloudflare.com"
+        nslookup cloudflare.com 1.1.1.1 || echo "1.1.1.1 query failed"
+        
+        echo "3. Standard DNS for github.com"
+        nslookup github.com || echo "github.com failed"
+        
+        echo "=== End External DNS Round ==="
+        echo ""
+        sleep 20
+      done
+    resources:
+      requests:
+        memory: "16Mi"
+        cpu: "5m"
+      limits:
+        memory: "32Mi"
+        cpu: "20m"
+  restartPolicy: Always

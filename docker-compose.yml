@@ -1,0 +1,110 @@
+networks:
+  app_network:
+    driver: bridge
+
+services:
+  nginx:
+    image: nginx
+    container_name: nginx
+    ports:
+      - "80:80"
+    hostname: mynginx.local
+    networks:
+      - app_network
+    restart: unless-stopped
+
+  client:
+    image: curlimages/curl
+    container_name: client
+    command: >
+      sh -c "
+        while true; do
+          echo 'Making DNS request to google.com...'
+          curl -s http://google.com/ > /dev/null && echo 'Success' || echo 'Failed'
+          echo 'Making DNS request to example.com...'  
+          curl -s http://example.com/ > /dev/null && echo 'Success' || echo 'Failed'
+          sleep 5
+        done
+      "
+    dns:
+      - "8.8.8.8"
+      - "1.1.1.1"
+    networks:
+      - app_network
+    depends_on:
+      - nginx
+    restart: unless-stopped
+
+  # DNS tracer for host interface (external DNS)
+  dnstracer-host:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: dnstracer:latest
+    container_name: dnstracer-host
+    restart: unless-stopped
+    privileged: true
+    network_mode: "host"
+    environment:
+      - DNSTRACER_USE_PERFBUF=false
+      - DNSTRACER_INTERFACE=wlp3s0
+    volumes:
+      - /sys/fs/bpf:/sys/fs/bpf:rw
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - SYS_ADMIN
+      - SYS_RESOURCE
+      - BPF
+    security_opt:
+      - apparmor:unconfined
+
+  # DNS tracer for container bridge (internal DNS)
+  dnstracer-bridge:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: dnstracer:latest
+    container_name: dnstracer-bridge
+    restart: unless-stopped
+    privileged: true
+    network_mode: "host"
+    environment:
+      - DNSTRACER_USE_PERFBUF=false
+      - DNSTRACER_INTERFACE=br-958f44eef9b0
+    volumes:
+      - /sys/fs/bpf:/sys/fs/bpf:rw
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - SYS_ADMIN
+      - SYS_RESOURCE
+      - BPF
+    security_opt:
+      - apparmor:unconfined
+
+  # Test client with both internal and external DNS queries
+  client-internal:
+    image: curlimages/curl
+    container_name: client-internal
+    command: >
+      sh -c "
+        while true; do
+          echo '=== Testing Container-to-Container DNS ==='
+          echo 'Direct container name resolution (nginx):'
+          nslookup nginx || echo 'nginx lookup failed'
+          echo 'Custom hostname resolution (mynginx.local):'  
+          nslookup mynginx.local || echo 'mynginx.local lookup failed'
+          echo 'External DNS test (google.com):'
+          nslookup google.com || echo 'google.com lookup failed'
+          echo 'HTTP requests:'
+          curl -s http://nginx/ > /dev/null && echo 'nginx HTTP Success' || echo 'nginx HTTP Failed'
+          curl -s http://mynginx.local/ > /dev/null && echo 'mynginx.local HTTP Success' || echo 'mynginx.local HTTP Failed'
+          echo '=== End Test Round ==='
+          sleep 8
+        done
+      "
+    networks:
+      - app_network
+    depends_on:
+      - nginx

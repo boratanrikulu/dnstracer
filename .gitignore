@@ -23,5 +23,3 @@ scripts/
 
 # OS files
 .DS_Store
-
-Makefile

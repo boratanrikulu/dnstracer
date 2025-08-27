@@ -54,6 +54,8 @@ type BpfPerfbufSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type BpfPerfbufProgramSpecs struct {
+	DnsEgress       *ebpf.ProgramSpec `ebpf:"dns_egress"`
+	DnsIngress      *ebpf.ProgramSpec `ebpf:"dns_ingress"`
 	DnsPacketParser *ebpf.ProgramSpec `ebpf:"dns_packet_parser"`
 }
 
@@ -114,11 +116,15 @@ type BpfPerfbufVariables struct {
 //
 // It can be passed to LoadBpfPerfbufObjects or ebpf.CollectionSpec.LoadAndAssign.
 type BpfPerfbufPrograms struct {
+	DnsEgress       *ebpf.Program `ebpf:"dns_egress"`
+	DnsIngress      *ebpf.Program `ebpf:"dns_ingress"`
 	DnsPacketParser *ebpf.Program `ebpf:"dns_packet_parser"`
 }
 
 func (p *BpfPerfbufPrograms) Close() error {
 	return _BpfPerfbufClose(
+		p.DnsEgress,
+		p.DnsIngress,
 		p.DnsPacketParser,
 	)
 }

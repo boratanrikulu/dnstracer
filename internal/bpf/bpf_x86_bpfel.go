@@ -81,6 +81,8 @@ type BpfSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type BpfProgramSpecs struct {
+	DnsEgress       *ebpf.ProgramSpec `ebpf:"dns_egress"`
+	DnsIngress      *ebpf.ProgramSpec `ebpf:"dns_ingress"`
 	DnsPacketParser *ebpf.ProgramSpec `ebpf:"dns_packet_parser"`
 }
 
@@ -141,11 +143,15 @@ type BpfVariables struct {
 //
 // It can be passed to LoadBpfObjects or ebpf.CollectionSpec.LoadAndAssign.
 type BpfPrograms struct {
+	DnsEgress       *ebpf.Program `ebpf:"dns_egress"`
+	DnsIngress      *ebpf.Program `ebpf:"dns_ingress"`
 	DnsPacketParser *ebpf.Program `ebpf:"dns_packet_parser"`
 }
 
 func (p *BpfPrograms) Close() error {
 	return _BpfClose(
+		p.DnsEgress,
+		p.DnsIngress,
 		p.DnsPacketParser,
 	)
 }
